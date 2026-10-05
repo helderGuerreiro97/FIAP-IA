@@ -29,7 +29,7 @@ Bomba d'água - Módulo relé
 
 ## 2. Circuito
 
-![Circuito montado no Wokwi](images/circuito-wokwi.png)
+![Circuito montado no Wokwi](https://github.com/helderGuerreiro97/FIAP-IA/blob/Fase2_Trab1/circuito-wokwi.png)
 
 ### Ligações
 
