@@ -17,7 +17,7 @@
 
 ## 👨‍🎓 Integrantes:
 - [Almério Samuel Almeida Pinto](https://github.com/RM574304) (RM574304)
-- André Felipe Vieira da Silva (RM574808)
+- [André Felipe Vieira da Silva](https://github.com/Andrefelipeam) (RM574808)
 - [Helder de Melo Guerreiro](https://github.com/helderGuerreiro97) (RM575318)
 - Priscila Fernandes de Carvalho (RM576037)
 
