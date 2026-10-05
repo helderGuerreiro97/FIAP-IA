@@ -16,38 +16,70 @@
 
 #define RELE_PIN 25
 
+// ======================
+// TEMPOS (em milissegundos)
+// ======================
+
+const unsigned long INTERVALO_LEITURA = 2000; // DHT22 exige >= 2 s entre leituras
+const unsigned long TEMPO_DEBOUNCE    = 50;   // filtra o "quique" mecanico do botao
+
 DHT dht(PINO_DHT, DHTTYPE);
 
-void setup() {
+// ======================
+// BOTOES NPK EM MODO TOGGLE
+// Cada clique inverte o estado do nutriente:
+// AUSENTE -> PRESENTE -> AUSENTE ...
+// O valor continua sendo "tudo ou nada" (true/false).
+// ======================
 
-  Serial.begin(115200);
+struct BotaoToggle {
+  uint8_t pino;
+  const char* nome;
+  bool estado;            // true = nutriente PRESENTE
+  int  nivelEstavel;      // ultimo nivel confirmado apos o debounce
+  int  ultimaLeitura;     // ultima leitura bruta do pino
+  unsigned long tempoMudanca;
+};
 
-  dht.begin();
+BotaoToggle botoes[] = {
+  { BOTAO_N, "N", false, HIGH, HIGH, 0 },
+  { BOTAO_P, "P", false, HIGH, HIGH, 0 },
+  { BOTAO_K, "K", false, HIGH, HIGH, 0 }
+};
 
-  pinMode(BOTAO_N, INPUT_PULLUP);
-  pinMode(BOTAO_P, INPUT_PULLUP);
-  pinMode(BOTAO_K, INPUT_PULLUP);
+const int NUM_BOTOES = sizeof(botoes) / sizeof(botoes[0]);
 
-  pinMode(RELE_PIN, OUTPUT);
+unsigned long ultimoCiclo = 0;
 
-  digitalWrite(RELE_PIN, LOW);
+// Retorna true quando o botao acabou de ser pressionado
+// (borda de descida confirmada), invertendo seu estado.
+bool atualizarBotao(BotaoToggle &b) {
+  int leitura = digitalRead(b.pino);
 
-  Serial.println();
-  Serial.println("=================================");
-  Serial.println("FARMTECH SOLUTIONS");
-  Serial.println("Sistema Inteligente de Irrigacao");
-  Serial.println("=================================");
+  if (leitura != b.ultimaLeitura) {
+    b.ultimaLeitura = leitura;
+    b.tempoMudanca = millis();
+  }
+
+  if ((millis() - b.tempoMudanca) >= TEMPO_DEBOUNCE && leitura != b.nivelEstavel) {
+    b.nivelEstavel = leitura;
+    if (leitura == LOW) {        // INPUT_PULLUP: LOW = botao apertado
+      b.estado = !b.estado;
+      return true;
+    }
+  }
+  return false;
 }
 
-void loop() {
+// ======================
+// CICLO DE LEITURA E DECISAO
+// ======================
 
-  // ======================
-  // LEITURA DOS BOTOES NPK
-  // ======================
+void executarCiclo() {
 
-  bool nitrogenio = (digitalRead(BOTAO_N) == LOW);
-  bool fosforo    = (digitalRead(BOTAO_P) == LOW);
-  bool potassio   = (digitalRead(BOTAO_K) == LOW);
+  bool nitrogenio = botoes[0].estado;
+  bool fosforo    = botoes[1].estado;
+  bool potassio   = botoes[2].estado;
 
   // ======================
   // LEITURA DA UMIDADE
@@ -56,8 +88,8 @@ void loop() {
   float umidade = dht.readHumidity();
 
   if (isnan(umidade)) {
-    Serial.println("Erro ao ler DHT22");
-    delay(2000);
+    Serial.println("Erro ao ler DHT22 - bomba desligada por seguranca");
+    digitalWrite(RELE_PIN, LOW);
     return;
   }
 
@@ -74,28 +106,14 @@ void loop() {
   // REGRA DA IRRIGACAO
   // ======================
 
-  bool irrigar = false;
-
-  if (
-      nitrogenio &&
-      fosforo &&
-      potassio &&
-      umidade < 40 &&
-      phAdequado
-     )
-  {
-    irrigar = true;
-  }
+  bool irrigar = nitrogenio && fosforo && potassio &&
+                 umidade < 40 && phAdequado;
 
   // ======================
   // CONTROLE DO RELE
   // ======================
 
-  if (irrigar) {
-    digitalWrite(RELE_PIN, HIGH);
-  } else {
-    digitalWrite(RELE_PIN, LOW);
-  }
+  digitalWrite(RELE_PIN, irrigar ? HIGH : LOW);
 
   // ======================
   // MONITOR SERIAL
@@ -122,11 +140,50 @@ void loop() {
   Serial.print("pH adequado: ");
   Serial.println(phAdequado ? "SIM" : "NAO");
 
-  if (irrigar) {
-    Serial.println(">>> BOMBA LIGADA <<<");
-  } else {
-    Serial.println(">>> BOMBA DESLIGADA <<<");
+  Serial.println(irrigar ? ">>> BOMBA LIGADA <<<" : ">>> BOMBA DESLIGADA <<<");
+}
+
+void setup() {
+
+  Serial.begin(115200);
+
+  dht.begin();
+
+  for (int i = 0; i < NUM_BOTOES; i++) {
+    pinMode(botoes[i].pino, INPUT_PULLUP);
   }
 
-  delay(2000);
+  pinMode(RELE_PIN, OUTPUT);
+  digitalWrite(RELE_PIN, LOW);
+
+  Serial.println();
+  Serial.println("=================================");
+  Serial.println("FARMTECH SOLUTIONS");
+  Serial.println("Sistema Inteligente de Irrigacao");
+  Serial.println("=================================");
+  Serial.println("Clique em N, P ou K para alternar PRESENTE/AUSENTE");
+}
+
+void loop() {
+
+  // Os botoes sao verificados a cada volta do loop (sem delay),
+  // entao nenhum clique e perdido.
+  bool houveMudanca = false;
+
+  for (int i = 0; i < NUM_BOTOES; i++) {
+    if (atualizarBotao(botoes[i])) {
+      houveMudanca = true;
+      Serial.print("[BOTAO] ");
+      Serial.print(botoes[i].nome);
+      Serial.print(" -> ");
+      Serial.println(botoes[i].estado ? "PRESENTE" : "AUSENTE");
+    }
+  }
+
+  // Reavalia a irrigacao a cada 2 s ou imediatamente apos um clique.
+  // (A biblioteca DHT devolve a ultima leitura se chamada antes de 2 s.)
+  if (houveMudanca || millis() - ultimoCiclo >= INTERVALO_LEITURA) {
+    ultimoCiclo = millis();
+    executarCiclo();
+  }
 }
