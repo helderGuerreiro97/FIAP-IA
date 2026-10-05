@@ -17,6 +17,18 @@
 #define RELE_PIN 25
 
 // ======================
+// PARAMETROS DA CULTURA: FEIJAO
+// ======================
+
+const float UMIDADE_INICIO = 40.0;  // abaixo disso a irrigacao comeca (%)
+const float UMIDADE_PARADA = 50.0;  // a partir disso a irrigacao para (%)
+
+const float PH_MINIMO = 5.5;        // faixa de pH adequada ao feijoeiro
+const float PH_MAXIMO = 6.5;
+
+const int ADC_MAXIMO = 4095;        // ADC de 12 bits do ESP32
+
+// ======================
 // TEMPOS (em milissegundos)
 // ======================
 
@@ -51,6 +63,9 @@ const int NUM_BOTOES = sizeof(botoes) / sizeof(botoes[0]);
 
 unsigned long ultimoCiclo = 0;
 
+// Estado da bomba guardado entre ciclos (necessario para a histerese)
+bool bombaLigada = false;
+
 // Retorna true quando o botao acabou de ser pressionado
 // (borda de descida confirmada), invertendo seu estado.
 bool atualizarBotao(BotaoToggle &b) {
@@ -72,6 +87,17 @@ bool atualizarBotao(BotaoToggle &b) {
 }
 
 // ======================
+// CONVERSAO LDR -> pH (0 a 14)
+// No modulo LDR do Wokwi, mais luz = menor tensao em AO.
+// A escala foi invertida para que mais luz (slider para a direita)
+// signifique pH maior, deixando a simulacao mais intuitiva.
+// ======================
+
+float lerPH(int valorLDR) {
+  return (ADC_MAXIMO - valorLDR) * 14.0 / ADC_MAXIMO;
+}
+
+// ======================
 // CICLO DE LEITURA E DECISAO
 // ======================
 
@@ -89,6 +115,7 @@ void executarCiclo() {
 
   if (isnan(umidade)) {
     Serial.println("Erro ao ler DHT22 - bomba desligada por seguranca");
+    bombaLigada = false;
     digitalWrite(RELE_PIN, LOW);
     return;
   }
@@ -97,23 +124,40 @@ void executarCiclo() {
   // LEITURA DO LDR (PH)
   // ======================
 
-  int valorLDR = analogRead(LDR_PIN);
-
-  // Simulacao de faixa de pH ideal
-  bool phAdequado = (valorLDR >= 1200 && valorLDR <= 3000);
+  int   valorLDR   = analogRead(LDR_PIN);
+  float ph         = lerPH(valorLDR);
+  bool  phAdequado = (ph >= PH_MINIMO && ph <= PH_MAXIMO);
 
   // ======================
-  // REGRA DA IRRIGACAO
+  // REGRA DA IRRIGACAO (com histerese)
+  // - Liga  : NPK presente, pH adequado e umidade < UMIDADE_INICIO
+  // - Desliga: umidade >= UMIDADE_PARADA, ou NPK/pH deixam de
+  //            estar adequados
+  // - Entre os dois limites a bomba mantem o estado anterior.
   // ======================
 
-  bool irrigar = nitrogenio && fosforo && potassio &&
-                 umidade < 40 && phAdequado;
+  bool soloAdequado = nitrogenio && fosforo && potassio && phAdequado;
+  const char* motivo;
+
+  if (!soloAdequado) {
+    bombaLigada = false;
+    motivo = "nutrientes ou pH fora do adequado";
+  } else if (!bombaLigada && umidade < UMIDADE_INICIO) {
+    bombaLigada = true;
+    motivo = "umidade abaixo do limite de inicio";
+  } else if (bombaLigada && umidade >= UMIDADE_PARADA) {
+    bombaLigada = false;
+    motivo = "umidade atingiu o limite de parada";
+  } else {
+    motivo = bombaLigada ? "irrigando ate atingir o limite de parada"
+                         : "umidade suficiente";
+  }
 
   // ======================
   // CONTROLE DO RELE
   // ======================
 
-  digitalWrite(RELE_PIN, irrigar ? HIGH : LOW);
+  digitalWrite(RELE_PIN, bombaLigada ? HIGH : LOW);
 
   // ======================
   // MONITOR SERIAL
@@ -132,15 +176,28 @@ void executarCiclo() {
 
   Serial.print("Umidade: ");
   Serial.print(umidade);
-  Serial.println("%");
+  Serial.print("% (inicia < ");
+  Serial.print(UMIDADE_INICIO);
+  Serial.print("%, para >= ");
+  Serial.print(UMIDADE_PARADA);
+  Serial.println("%)");
 
-  Serial.print("Valor LDR (pH): ");
-  Serial.println(valorLDR);
+  Serial.print("LDR: ");
+  Serial.print(valorLDR);
+  Serial.print(" -> pH: ");
+  Serial.print(ph, 2);
+  Serial.print(" (adequado: ");
+  Serial.print(PH_MINIMO, 1);
+  Serial.print(" a ");
+  Serial.print(PH_MAXIMO, 1);
+  Serial.println(")");
 
   Serial.print("pH adequado: ");
   Serial.println(phAdequado ? "SIM" : "NAO");
 
-  Serial.println(irrigar ? ">>> BOMBA LIGADA <<<" : ">>> BOMBA DESLIGADA <<<");
+  Serial.println(bombaLigada ? ">>> BOMBA LIGADA <<<" : ">>> BOMBA DESLIGADA <<<");
+  Serial.print("Motivo: ");
+  Serial.println(motivo);
 }
 
 void setup() {
@@ -160,6 +217,7 @@ void setup() {
   Serial.println("=================================");
   Serial.println("FARMTECH SOLUTIONS");
   Serial.println("Sistema Inteligente de Irrigacao");
+  Serial.println("Cultura: FEIJAO");
   Serial.println("=================================");
   Serial.println("Clique em N, P ou K para alternar PRESENTE/AUSENTE");
 }
