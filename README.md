@@ -58,7 +58,7 @@ O grupo escolheu o feijão (*Phaseolus vulgaris*), cultura de grande importânci
 
 ## 4. Funcionamento e lógica do programa
 
-O código está em [`src/main.cpp`]([https://github.com/helderGuerreiro97/FIAP-IA/blob/Fase2_Trab1/Fase%202%20Trabalho%201/src/main.cpp]) (C++ / framework Arduino).
+O código está em [`src/main.cpp`](https://github.com/helderGuerreiro97/FIAP-IA/blob/Fase2_Trab1/Fase%202%20Trabalho%201/src/main.cpp) (C++ / framework Arduino).
 
 ### 4.1 Botões NPK no modo *toggle*
 
