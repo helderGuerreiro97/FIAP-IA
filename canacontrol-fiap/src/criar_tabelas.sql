@@ -1,0 +1,18 @@
+-- CanaControl - Script de criação das tabelas no Oracle
+-- (o programa também cria as tabelas pelo menu 11 > 1)
+
+CREATE TABLE TALHAO (
+    ID_TALHAO     NUMBER PRIMARY KEY,
+    NOME          VARCHAR2(50) NOT NULL,
+    AREA_HA       NUMBER(12,2) NOT NULL,
+    PROD_ESPERADA NUMBER(10,2) NOT NULL
+);
+
+CREATE TABLE COLHEITA (
+    ID_COLHEITA   NUMBER PRIMARY KEY,
+    ID_TALHAO     NUMBER NOT NULL REFERENCES TALHAO(ID_TALHAO),
+    DATA_COLHEITA DATE NOT NULL,
+    TIPO          VARCHAR2(10) NOT NULL CHECK (TIPO IN ('manual', 'mecanica')),
+    TON_COLHIDAS  NUMBER(12,2) NOT NULL,
+    PRECO_TON     NUMBER(10,2) NOT NULL
+);

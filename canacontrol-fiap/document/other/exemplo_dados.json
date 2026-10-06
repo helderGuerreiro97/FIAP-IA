@@ -1,0 +1,62 @@
+{
+    "talhoes": [
+        {
+            "id": 1,
+            "nome": "Talhão Norte",
+            "area_ha": 50.0,
+            "prod_esperada": 100.0
+        },
+        {
+            "id": 2,
+            "nome": "Talhão Sul",
+            "area_ha": 30.0,
+            "prod_esperada": 90.0
+        },
+        {
+            "id": 3,
+            "nome": "Talhão Leste",
+            "area_ha": 40.0,
+            "prod_esperada": 95.0
+        },
+        {
+            "id": 4,
+            "nome": "Talhão Oeste",
+            "area_ha": 25.0,
+            "prod_esperada": 85.0
+        }
+    ],
+    "colheitas": [
+        {
+            "id": 1,
+            "id_talhao": 1,
+            "data": "01/09/2026",
+            "tipo": "mecanica",
+            "ton_colhidas": 4100.0,
+            "preco_ton": 150.0
+        },
+        {
+            "id": 2,
+            "id_talhao": 2,
+            "data": "02/09/2026",
+            "tipo": "manual",
+            "ton_colhidas": 2600.0,
+            "preco_ton": 150.0
+        },
+        {
+            "id": 3,
+            "id_talhao": 3,
+            "data": "05/09/2026",
+            "tipo": "mecanica",
+            "ton_colhidas": 3350.0,
+            "preco_ton": 150.0
+        },
+        {
+            "id": 4,
+            "id_talhao": 4,
+            "data": "08/09/2026",
+            "tipo": "manual",
+            "ton_colhidas": 1980.0,
+            "preco_ton": 150.0
+        }
+    ]
+}
